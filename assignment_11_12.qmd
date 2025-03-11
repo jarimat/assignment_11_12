@@ -1,0 +1,160 @@
+---
+title: "assignment_11_12"
+format: html
+self-contained: true
+author: Jake Matullo
+---
+_Part 1_
+
+**1. Load the airquality dataset in R. What does this dataset represent? Explore its structure using functions like str() and summary().**
+
+```{r}
+install.packages("airqualityES",  repos = "https://cran.rstudio.com")
+library(tidymodels)
+library(dplyr)
+
+str(airquality)
+```
+```{r}
+summary(airquality)
+```
+**2. Perform a Shapiro-Wilk normality test on the following variables: Ozone, Temp, Solar.R, and Wind.**
+
+```{r}
+shapiro.test(airquality$Ozone)
+```
+```{r}
+shapiro.test(airquality$Temp)
+```
+```{r}
+shapiro.test(airquality$Solar.R)
+```
+```{r}
+shapiro.test(airquality$Wind)
+```
+**3. What is the purpose of the Shapiro-Wilk test?**
+
+The purpose of a Shapiro-Wilk test is to determine whether a set of data is normally distributed, as well as offering a p-value to determine significance.
+
+**4. What are the null and alternative hypotheses for this test?**
+
+The null hypothesis would be that the data is sourced from a normal distribution, while the alternative hypothesis would be that it isn't and the data is skewed in some way. If the p-value is less than 0.05, then it is statistically significant, the null hypothesis is rejected, and the distribution ain't normal.
+
+**5. Interpret the p-values. Are these variables normally distributed?**
+
+The only variable that is normally distributed in Wind. Everything else is skewed to some degree.
+
+_Part 2_
+
+**6. Create a new column with case_when translating the Months into four seasons (Winter (Nov, Dec, Jan), Spring (Feb, Mar, Apr), Summer (May, Jun, Jul), and Fall (Aug, Sept, Oct))**
+
+```{r}
+airquality <- airquality |>
+  mutate(Season = case_when(
+    Month %in% c(12, 1, 2) ~ "Winter",
+    Month %in% c(3, 4, 5) ~ "Spring",
+    Month %in% c(6, 7, 8) ~ "Summer",
+    Month %in% c(9, 10, 11) ~ "Fall",
+    TRUE ~ NA_character_
+  ))
+```
+**7. Use table to figure out how many observations we have from each season.**
+
+```{r}
+table(airquality$Season)
+```
+
+**.8 Normalize the predictor variables (Temp, Solar.R, Wind, and Season) using a recipe.**
+
+```{r}
+library(recipes)
+
+recipe_obj <- recipe(Temp ~ Solar.R + Wind + Season, data = airquality) %>%
+  step_impute_mean(all_numeric_predictors()) %>%
+  step_dummy(all_factor_predictors()) %>%
+  step_normalize(all_numeric_predictors())
+```
+
+**9. What is the purpose of normalizing data?**
+
+The purpose of normalizing data is to create data with a normal distribution that is then easier to work with.
+
+**10. What function can be used to impute missing values with the mean?**
+
+We use the step_impute_mean function in order to do that.
+
+**11. prep and bake the data to generate a processed dataset.**
+
+```{r}
+prep_recipe <- prep(recipe_obj, training = airquality)
+
+baked_recipe <- bake(prep_recipe, new_data = airquality)
+
+summary(baked_recipe)
+```
+**12. Why is it necessary to both prep() and bake() the recipe?**
+
+It's necessary because prepping the recipe processes and apples it to the data set in order to get normalized data, and baking the recipe applies transformations to the data set.
+
+**13. Fit a linear model using Ozone as the response variable and all other variables as predictors. Remember that the . notation can we used to include all variables.**
+
+```{r}
+ozone_lm  <- lm(Ozone ~ Solar.R + Wind + Temp + Season + Month + Day, data = airquality)
+
+summary(ozone_lm)
+```
+**14. Interpret the model summary output (coefficients, R-squared, p-values) in plain language**
+
+The relationship between ozone and month and day was insignificant, with the summer season being slightly more significant but still unremarkable. All other factors, and particularly wind and temperature, had significant effects on ozone levels. Their extreme t-values help further back this up. The variance in values in the data set mostly lines up with this relationship, though there are some unexplained values.
+
+**15. Use broom::augment to supplement the normalized data.frame with the fitted values and residuals.**
+
+```{r}
+augment_lm <- broom::augment(ozone_lm)
+
+
+```
+
+```{r}
+residuals_ozone_lm <- residuals(ozone_lm)
+```
+```{r}
+library(ggplot2)
+```
+```{r}
+p1 <- ggplot(data.frame(residuals_ozone_lm), aes(x = residuals_ozone_lm)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Residuals", x = "Residuals", y = "Frequency") +
+  theme_minimal()
+
+print(p1)
+```
+```{r}
+p2 <- ggplot(data.frame(residuals_ozone_lm), aes(x = residuals_ozone_lm)) +
+  geom_boxplot(fill = "blue") +
+  ggtitle("Boxplot of Residuals") +
+  ylab("Frequency")
+
+print(p2)
+```
+**17. Use ggarange to plot this as one image and interpret what you see in them.**
+
+```{r}
+library(ggpubr)
+
+ggarrange(p1, p2, ncol = 2, nrow = 2)
+```
+
+**18. Create a scatter plot of actual vs. predicted values using ggpubr with the following setting:**
+
+```{r}
+library(ggpubr)
+
+ggscatter(augment_lm, x = "Ozone", y = ".fitted",
+          add = "reg.line", conf.int = TRUE,
+          cor.coef = TRUE, cor.method = "spearman",
+          ellipse = TRUE)
+```
+**19. How strong of a model do you think this is?**
+
+It seems like it's a pretty strong model. It has a very good R value and p-value, suggesting it shows a very significant relationship with little unexplained variance.
