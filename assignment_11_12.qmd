@@ -1,8 +1,11 @@
 ---
 title: "assignment_11_12"
-format: html
-self-contained: true
+format: 
+  html
+    self-contained: true
 author: Jake Matullo
+execute:
+  echo: true
 ---
 _Part 1_
 
